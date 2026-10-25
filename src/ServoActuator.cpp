@@ -2,8 +2,12 @@
 
 namespace
 {
-// Angles accepted by the original firmware.
-constexpr int ALLOWED_ANGLES[] = {0, 45, 90, 135, 180};
+// Valid angle range, in degrees.
+constexpr int MIN_ANGLE = 0;
+constexpr int MAX_ANGLE = 180;
+
+// "180" is the longest valid text.
+constexpr unsigned int MAX_DIGITS = 3;
 }
 
 ServoActuator::ServoActuator(uint8_t pin,
@@ -28,7 +32,7 @@ void ServoActuator::begin()
 
 bool ServoActuator::setAngle(int angle)
 {
-    if (!isAllowedAngle(angle))
+    if (angle < MIN_ANGLE || angle > MAX_ANGLE)
     {
         return false;
     }
@@ -43,14 +47,30 @@ int ServoActuator::getAngle() const
     return m_angle;
 }
 
-bool ServoActuator::isAllowedAngle(int angle)
+bool ServoActuator::parseAngle(const uint8_t* text, unsigned int length, int& angle)
 {
-    for (const int allowed : ALLOWED_ANGLES)
+    // Reject empty or too long text before reading any byte.
+    if (text == nullptr || length == 0 || length > MAX_DIGITS)
     {
-        if (angle == allowed)
-        {
-            return true;
-        }
+        return false;
     }
-    return false;
+
+    int value = 0;
+    for (unsigned int i = 0; i < length; ++i)
+    {
+        // Only digits are accepted, so signs and letters are rejected here.
+        if (text[i] < '0' || text[i] > '9')
+        {
+            return false;
+        }
+        value = value * 10 + (text[i] - '0');
+    }
+
+    if (value < MIN_ANGLE || value > MAX_ANGLE)
+    {
+        return false;
+    }
+
+    angle = value;
+    return true;
 }

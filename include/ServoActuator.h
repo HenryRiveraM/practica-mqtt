@@ -6,10 +6,9 @@
 /**
  * @brief Wrapper around an ESP32Servo instance.
  *
- * The class owns the servo, remembers its current angle and only accepts
- * the angles allowed by the original firmware (0, 45, 90, 135 and 180).
- * It does not know about MQTT or the global configuration: every parameter
- * is received through the constructor.
+ * The class owns the servo, remembers its current angle and accepts any
+ * integer angle from 0 to 180 degrees. It does not know about MQTT or the
+ * global configuration: every parameter is received through the constructor.
  */
 class ServoActuator
 {
@@ -39,11 +38,11 @@ public:
     /**
      * @brief Moves the servo to the requested angle.
      *
-     * Only the angles 0, 45, 90, 135 and 180 are accepted. Any other value
-     * is ignored and the servo does not move.
+     * Any integer from 0 to 180 is accepted. Other values are ignored and
+     * the servo does not move.
      *
      * @param angle Target angle in degrees.
-     * @return true if the angle was accepted and applied, false otherwise.
+     * @return true if the angle was valid and applied, false otherwise.
      */
     bool setAngle(int angle);
 
@@ -54,15 +53,21 @@ public:
      */
     int getAngle() const;
 
-private:
     /**
-     * @brief Checks whether an angle is one of the allowed values.
+     * @brief Converts text bytes into a valid servo angle.
      *
-     * @param angle Angle in degrees.
-     * @return true if the angle is allowed, false otherwise.
+     * The text must contain only one to three digits (no sign, spaces or
+     * other characters) and represent a value from 0 to 180. The bytes do
+     * not need to be null-terminated. This function does not move the servo.
+     *
+     * @param text   Bytes of the text to convert.
+     * @param length Number of bytes in the text.
+     * @param[out] angle Receives the angle only when the text is valid.
+     * @return true if the text is a valid angle, false otherwise.
      */
-    static bool isAllowedAngle(int angle);
+    static bool parseAngle(const uint8_t* text, unsigned int length, int& angle);
 
+private:
     Servo m_servo;
     const uint8_t m_pin;
     const uint16_t m_frequencyHz;
