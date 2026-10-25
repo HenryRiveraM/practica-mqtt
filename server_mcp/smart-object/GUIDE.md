@@ -141,12 +141,12 @@ Requires the Mosquitto clients (`mosquitto_pub`, `mosquitto_sub`).
 ```bash
 T=sis234/grupo9-test-me
 # Watch commands the server publishes (use the real topics to see real traffic)
-mosquitto_sub -h broker.hivemq.com -p 1883 -v -t "$T/servo/cmd"
+mosquitto_sub -h broker.hivemq.com -p 1883 -v -t "$T/servo"
 # Real project topics, passive observation of the real ESP32:
 mosquitto_sub -h broker.hivemq.com -p 1883 -v -t "sis234/grupo9/#"
 ```
 
-PowerShell: use `$T = "sis234/grupo9-test-me"` and `"$T/servo/cmd"`.
+PowerShell: use `$T = "sis234/grupo9-test-me"` and `"$T/servo"`.
 
 | # | Test | Steps | Expected |
 |---|---|---|---|
@@ -155,8 +155,8 @@ PowerShell: use `$T = "sis234/grupo9-test-me"` and `"$T/servo/cmd"`.
 | 3 | Malformed / out of range | publish `abc`, `nan`, `inf`, `1.99`, `400.01`, empty (`-m ""`), `-m "23,4"` | Warnings in stderr; `get_distance` still returns 23.45 |
 | 4 | Stale | Wait longer than `stale_after_seconds` (or set it to 3) | `stale:true` with note |
 | 5 | Retained | `mosquitto_pub -h broker.hivemq.com -t "$T/distancia" -m "50.00" -r`, then **restart the server** | `retained:true`, message says original measurement time unknown. Clear it afterwards: `mosquitto_pub -h broker.hivemq.com -t "$T/distancia" -n -r` |
-| 6 | Servo commands | With the `mosquitto_sub` on `$T/servo/cmd` running, ask for 90, then 180 | `success:true`; subscriber shows `90` then `180`, not retained; message states it's not an acknowledgment |
-| 7 | Rejections | Call with `-1`, `181`, `90.5`, `true` | Errors; nothing appears on `$T/servo/cmd` |
+| 6 | Servo commands | With the `mosquitto_sub` on `$T/servo` running, ask for 90, then 180 | `success:true`; subscriber shows `90` then `180`, not retained; message states it's not an acknowledgment |
+| 7 | Rejections | Call with `-1`, `181`, `90.5`, `true` | Errors; nothing appears on `$T/servo` |
 | 8 | Servo status | Before: `get_servo_status` → `available:false`. Then `mosquitto_pub -h broker.hivemq.com -t "$T/servo/estado" -m "180"` | `last_reported_angle:180`; `set_servo_angle` itself never changes this value |
 | 9 | Availability | Publish `online` to `$T/estado`; `get_distance` shows `online`. Then break MQTT (test 10) | `device_availability:"unknown"` while disconnected |
 | 10 | Connection failure | Set `mqtt.host` to `127.0.0.1`, `port` to `1` | stderr shows failed attempts with backoff; tools still respond with `mqtt_connected:false`; `set_servo_angle` returns `success:false` "MQTT is not connected" |
