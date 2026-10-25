@@ -8,6 +8,7 @@ MqttManager::MqttManager(const MqttSettings& settings)
       m_client(m_network),
       m_clientId(),
       m_messageCallback(nullptr),
+      m_connectedCallback(nullptr),
       m_lastAttemptMs(0),
       m_attempted(false),
       m_wifiWasConnected(false)
@@ -34,6 +35,11 @@ void MqttManager::begin()
 void MqttManager::setMessageCallback(MessageCallback callback)
 {
     m_messageCallback = callback;
+}
+
+void MqttManager::setConnectedCallback(ConnectedCallback callback)
+{
+    m_connectedCallback = callback;
 }
 
 void MqttManager::update(bool wifiConnected)
@@ -96,27 +102,70 @@ bool MqttManager::publishDistance(float distanceCm)
     return true;
 }
 
+bool MqttManager::publishServoState(int angle)
+{
+    // When disconnected there is nothing to do: the state is sent again
+    // by the connected callback after the next reconnection.
+    if (!m_client.connected())
+    {
+        return false;
+    }
+
+    char message[8];
+    snprintf(message, sizeof(message), "%d", angle);
+
+    if (!m_client.publish(m_settings.servoStateTopic, message, m_settings.retainServoState))
+    {
+        Serial.println("No se pudo publicar el estado del servo.");
+        return false;
+    }
+    return true;
+}
+
 void MqttManager::connect()
 {
     m_attempted = true;
     Serial.println("Conectando a MQTT...");
 
+    // The Last Will is registered during the connection: if the connection
+    // is lost unexpectedly, the broker publishes the offline message.
     const bool hasUser = m_settings.user != nullptr && m_settings.user[0] != '\0';
     const bool connected = hasUser
-        ? m_client.connect(m_clientId.c_str(), m_settings.user, m_settings.password)
-        : m_client.connect(m_clientId.c_str());
+        ? m_client.connect(m_clientId.c_str(),
+                           m_settings.user,
+                           m_settings.password,
+                           m_settings.statusTopic,
+                           m_settings.willQos,
+                           m_settings.retainStatus,
+                           m_settings.offlinePayload)
+        : m_client.connect(m_clientId.c_str(),
+                           m_settings.statusTopic,
+                           m_settings.willQos,
+                           m_settings.retainStatus,
+                           m_settings.offlinePayload);
 
     if (connected)
     {
         // Subscribe after every (re)connection, because the broker forgets it.
-        if (m_client.subscribe(m_settings.commandTopic, m_settings.subscribeQos))
-        {
-            Serial.println("MQTT conectado y suscripción enviada.");
-        }
-        else
+        if (!m_client.subscribe(m_settings.commandTopic, m_settings.subscribeQos))
         {
             Serial.println("No se pudo enviar la suscripción; se reintentará la conexión.");
             m_client.disconnect();
+        }
+        else if (!m_client.publish(m_settings.statusTopic,
+                                   m_settings.onlinePayload,
+                                   m_settings.retainStatus))
+        {
+            Serial.println("No se pudo publicar el estado online; se reintentará la conexión.");
+            m_client.disconnect();
+        }
+        else
+        {
+            Serial.println("MQTT conectado, suscrito y estado online publicado.");
+            if (m_connectedCallback)
+            {
+                m_connectedCallback();
+            }
         }
     }
     else

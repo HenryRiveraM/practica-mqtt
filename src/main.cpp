@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <cstring>
 #include "config.h"
 #include "UltrasonicSensor.h"
 #include "ServoActuator.h"
@@ -8,6 +7,37 @@
 
 namespace
 {
+/**
+ * @brief Builds the MQTT parameters from Config.
+ *
+ * Only this file reads Config. Filling each field by name avoids mixing
+ * the order of the values.
+ */
+MqttSettings makeMqttSettings()
+{
+    MqttSettings settings;
+    settings.host = Config::MQTT_HOST;
+    settings.port = Config::MQTT_PORT;
+    settings.user = Config::MQTT_USER;
+    settings.password = Config::MQTT_PASSWORD;
+    settings.clientPrefix = Config::MQTT_CLIENT_PREFIX;
+    settings.commandTopic = Config::TOPIC_SERVO_CMD;
+    settings.distanceTopic = Config::TOPIC_DISTANCE;
+    settings.servoStateTopic = Config::TOPIC_SERVO_STATE;
+    settings.statusTopic = Config::TOPIC_STATUS;
+    settings.onlinePayload = Config::STATUS_ONLINE;
+    settings.offlinePayload = Config::STATUS_OFFLINE;
+    settings.subscribeQos = Config::MQTT_SUBSCRIBE_QOS;
+    settings.willQos = Config::MQTT_WILL_QOS;
+    settings.retainDistance = Config::MQTT_RETAIN_DISTANCE;
+    settings.retainServoState = Config::MQTT_RETAIN_SERVO_STATE;
+    settings.retainStatus = Config::MQTT_RETAIN_STATUS;
+    settings.keepAliveSeconds = Config::MQTT_KEEPALIVE_SECONDS;
+    settings.socketTimeoutSeconds = Config::MQTT_SOCKET_TIMEOUT_SECONDS;
+    settings.retryMs = Config::MQTT_RETRY_MS;
+    return settings;
+}
+
 // Main objects. Only this file reads Config to build them.
 UltrasonicSensor sensor(Config::TRIGGER_PIN,
                         Config::ECHO_PIN,
@@ -26,71 +56,45 @@ WifiManager wifi(Config::WIFI_SSID,
                  Config::WIFI_PASSWORD,
                  Config::WIFI_RETRY_MS);
 
-const MqttSettings mqttSettings = {
-    Config::MQTT_HOST,
-    Config::MQTT_PORT,
-    Config::MQTT_USER,
-    Config::MQTT_PASSWORD,
-    Config::MQTT_CLIENT_PREFIX,
-    Config::TOPIC_SERVO,
-    Config::TOPIC_DISTANCE,
-    Config::MQTT_SUBSCRIBE_QOS,
-    Config::MQTT_RETAIN_DISTANCE,
-    Config::MQTT_KEEPALIVE_SECONDS,
-    Config::MQTT_SOCKET_TIMEOUT_SECONDS,
-    Config::MQTT_RETRY_MS};
+const MqttSettings mqttSettings = makeMqttSettings();
 
 MqttManager mqtt(mqttSettings);
 
 uint32_t lastMeasurementMs = 0;
 
 /**
- * @brief Converts an MQTT payload into one of the five accepted angles.
+ * @brief Handles a servo command received from the broker.
  *
- * The payload is not null-terminated, so it is compared using its length.
- *
- * @param payload Raw payload bytes.
- * @param length  Number of bytes in the payload.
- * @param angle   Receives the angle when the payload is valid.
- * @return true if the payload is "0", "45", "90", "135" or "180".
- */
-bool parseAngleCommand(const uint8_t* payload, unsigned int length, int& angle)
-{
-    static const char* const commands[] = {"0", "45", "90", "135", "180"};
-    static const int angles[] = {0, 45, 90, 135, 180};
-
-    for (size_t i = 0; i < 5; ++i)
-    {
-        if (length == strlen(commands[i]) && memcmp(payload, commands[i], length) == 0)
-        {
-            angle = angles[i];
-            return true;
-        }
-    }
-    return false;
-}
-
-/**
- * @brief Handles a command received from the broker and moves the servo.
+ * The payload is read first, because it is only valid until a new message
+ * is published.
  */
 void handleCommand(const char* /*topic*/, const uint8_t* payload, unsigned int length)
 {
     int angle = 0;
-    if (parseAngleCommand(payload, length, angle) && servo.setAngle(angle))
+    if (ServoActuator::parseAngle(payload, length, angle) && servo.setAngle(angle))
     {
         Serial.printf("Servo: %d grados\n", servo.getAngle());
+        mqtt.publishServoState(servo.getAngle());
         return;
     }
-    Serial.println("Comando ignorado: usa 0, 45, 90, 135 o 180.");
+    Serial.println("Comando ignorado: usa un entero de 0 a 180.");
 }
 
 /**
- * @brief Measures the distance and publishes it every PUBLISH_INTERVAL_MS.
+ * @brief Publishes the current servo angle after every MQTT connection.
+ */
+void handleConnected()
+{
+    mqtt.publishServoState(servo.getAngle());
+}
+
+/**
+ * @brief Measures the distance and publishes it every DISTANCE_PUBLISH_INTERVAL_MS.
  */
 void measureAndPublish()
 {
     const uint32_t now = millis();
-    if (now - lastMeasurementMs < Config::PUBLISH_INTERVAL_MS)
+    if (now - lastMeasurementMs < Config::DISTANCE_PUBLISH_INTERVAL_MS)
     {
         return;
     }
@@ -116,6 +120,7 @@ void setup()
     wifi.begin();
     mqtt.begin();
     mqtt.setMessageCallback(handleCommand);
+    mqtt.setConnectedCallback(handleConnected);
     lastMeasurementMs = millis();
 }
 
