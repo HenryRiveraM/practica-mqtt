@@ -17,7 +17,7 @@ constexpr char MQTT_CLIENT_PREFIX[] = "practica-esp32-";
 
 // Topics (MQTT contract of group 9)
 constexpr char TOPIC_DISTANCE[] = "sis234/grupo9/distancia";
-constexpr char TOPIC_SERVO_CMD[] = "sis234/grupo9/servo/cmd";
+constexpr char TOPIC_SERVO_CMD[] = "sis234/grupo9/servo";
 constexpr char TOPIC_SERVO_STATE[] = "sis234/grupo9/servo/estado";
 constexpr char TOPIC_STATUS[] = "sis234/grupo9/estado";
 
@@ -38,12 +38,12 @@ constexpr uint16_t MQTT_SOCKET_TIMEOUT_SECONDS = 2;
 // Timing
 constexpr uint32_t WIFI_RETRY_MS = 10000;
 constexpr uint32_t MQTT_RETRY_MS = 5000;
-constexpr uint32_t DISTANCE_PUBLISH_INTERVAL_MS = 250;
+constexpr uint32_t DISTANCE_PUBLISH_INTERVAL_MS = 5000;
 constexpr uint32_t SERIAL_BAUD = 115200;
 
 // Ultrasonic sensor (HC-SR04)
-constexpr uint8_t TRIGGER_PIN = 5;
-constexpr uint8_t ECHO_PIN = 18;
+constexpr uint8_t TRIGGER_PIN = 32;
+constexpr uint8_t ECHO_PIN = 35;
 constexpr uint32_t ECHO_TIMEOUT_US = 30000;
 constexpr float SOUND_CM_PER_US = 0.0343f;
 constexpr float DISTANCE_MIN_CM = 2.0f;
