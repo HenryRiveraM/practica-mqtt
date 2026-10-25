@@ -9,7 +9,7 @@
   },
   "topics": {
     "distance": "sis234/grupo9/distancia",
-    "servo_command": "sis234/grupo9/servo/cmd",
+    "servo_command": "sis234/grupo9/servo",
     "servo_state": "sis234/grupo9/servo/estado",
     "availability": "sis234/grupo9/estado"
   },
