@@ -1,4 +1,22 @@
-# ESP32: ultrasonido y servo por MQTT
+# Práctica MQTT — Integración de un Objeto Inteligente con MQTT y MCP
+
+**Carrera:** Ingeniería de Sistemas
+
+**Docente:** Eduardo Enrique Marin Garcia
+
+**Asignatura:** Internet de las Cosas [SIS-234]
+
+**Semestre:** 2-2026
+
+**Grupo:** 9
+
+**Integrantes:**
+
+- Carlos Eduardo Iriarte Rodriguez
+- Isabella Catherine Montes Iñiguez
+- Henry Alejandro Rivera Mendez
+
+## Descripción
 
 Proyecto PlatformIO para ESP32 DevKit V1, sensor HC-SR04 y servo convencional.
 
