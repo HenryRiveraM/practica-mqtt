@@ -27,11 +27,10 @@
 5. [Firmware del ESP32](#5-firmware-del-esp32)
 6. [Servidor MCP](#6-servidor-mcp)
 7. [Puesta en marcha](#7-puesta-en-marcha)
-8. [Pruebas](#8-pruebas)
-9. [Requerimientos de la práctica](#9-requerimientos-de-la-práctica)
-10. [Limitaciones conocidas](#10-limitaciones-conocidas)
-11. [Solución de problemas](#11-solución-de-problemas)
-
+8. [Aplicación móvil y evidencias](#8-aplicación-móvil-y-evidencias)
+9. [Pruebas](#9-pruebas)
+10. [Requerimientos de la práctica](#10-requerimientos-de-la-práctica)
+11. [Limitaciones conocidas](#11-limitaciones-conocidas)
 ---
 
 ## 1. Descripción general
@@ -40,11 +39,11 @@ El proyecto integra un **objeto inteligente** con una **herramienta de IA** usan
 
 - Un **ESP32 DevKit V1** mide distancias con un sensor ultrasónico **HC-SR04** y controla un **servomotor**. Publica sus datos y recibe comandos por MQTT.
 - Un **broker MQTT público en la nube** (`broker.hivemq.com`) conecta a todos los clientes. Ningún componente se comunica directamente con el ESP32.
-- Un **servidor MCP** (Model Context Protocol) escrito en Python actúa como cliente MQTT y expone tres herramientas a un asistente de IA (Claude Desktop, Codex). Así el asistente puede responder en lenguaje natural:
+- Un **servidor MCP** (Model Context Protocol) escrito en Python actúa como cliente MQTT y expone tres herramientas a un asistente de IA (Claude Desktop). Así el asistente puede responder en lenguaje natural, como las mencionadas o cualquier otra pregunta:
   - *"¿Cuál es la distancia actual detectada por mi ESP32?"*
   - *"Mueve el servomotor a 90 grados."* / *"…a 180 grados."*
   - *"¿Cuál es el último ángulo reportado por mi ESP32?"*
-- Una **aplicación móvil MQTT** (por ejemplo IoT MQTT Panel) puede usar los mismos tópicos para graficar la distancia y enviar comandos. La app no forma parte de este repositorio (ver [sección 9](#9-requerimientos-de-la-práctica)).
+- Una **aplicación móvil MQTT** (**IoT MQTT Panel**) usa los mismos tópicos para graficar la distancia (indicador *gauge* e historial) y enviar comandos al servo (botones y control deslizante). Su configuración y capturas están en la [sección 8](#8-aplicación-móvil-y-evidencias).
 
 ## 2. Arquitectura
 
@@ -60,7 +59,7 @@ flowchart LR
     B[("Broker MQTT<br/>broker.hivemq.com:1883")]
     APP["App móvil MQTT<br/>(IoT MQTT Panel)"]
     MCP["Servidor MCP<br/>smart-object.py"]
-    IA["Asistente de IA<br/>Claude Desktop / Codex"]
+    IA["Asistente de IA<br/>Claude Desktop"]
 
     F -- "distancia, estado servo,<br/>disponibilidad" --> B
     B -- "comando servo" --> F
@@ -97,12 +96,13 @@ practica-mqtt/
 │   ├── MqttManager.cpp
 │   ├── UltrasonicSensor.cpp
 │   └── ServoActuator.cpp
+├── docs/
+│   └── mqtt-panel/                 # Capturas de la app IoT MQTT Panel (evidencias)
 └── server_mcp/
     └── smart-object/
         ├── smart-object.py          # Servidor MCP (stdio)
         ├── smart-object.config.json # Broker, tópicos, umbrales y logging
         ├── requirements.txt         # mcp>=1.12,<2 · paho-mqtt>=2.1,<3
-        ├── GUIDE.md                 # Instalación, clientes MCP y plan de pruebas
         └── pyproject.toml, src/     # Andamiaje de uv (no se usa para ejecutar el servidor)
 ```
 
@@ -301,26 +301,53 @@ Usa siempre **rutas absolutas**, incluido el Python del entorno virtual.
 
 Reinicia Claude Desktop por completo; el servidor debe aparecer como activo en Desarrollador.
 
-**Codex**:
+### 7.4 Orden recomendado para la demo
 
-```powershell
-codex mcp add smart-object -- "C:\ruta\a\.venv\Scripts\python.exe" "C:\ruta\a\smart-object.py"
-```
+1. Conectar el ESP32 y verificar en el monitor serie que aparece `online` (Wi-Fi y MQTT).
+2. Abrir IoT MQTT Panel y comprobar que el gauge recibe la distancia.
+3. Iniciar el asistente de IA (Claude Desktop) y confirmar que `smart-object` figura como activo.
+4. Probar un comando desde la app (botón o slider) y otro desde el asistente en lenguaje natural.
+5. Desconectar y reconectar el Wi-Fi o el ESP32 para evidenciar la reconexión automática.
 
-o en `~/.codex/config.toml`:
+## 8. Aplicación móvil y evidencias
 
-```toml
-[mcp_servers.smart-object]
-command = 'C:\ruta\a\.venv\Scripts\python.exe'
-args = ['C:\ruta\a\smart-object.py']
-startup_timeout_sec = 20
-```
+La aplicación usada es **IoT MQTT Panel** (Android/iOS), conectada a `broker.hivemq.com:1883` con el panel **"Practica MQTT"**. Cubre **RF4** (visualización gráfica) y **RF5** (comandos al actuador).
 
-Detalles y capturas de logs en [`server_mcp/smart-object/GUIDE.md`](server_mcp/smart-object/GUIDE.md).
+| Panel | Tipo | Tópico | Configuración |
+|---|---|---|---|
+| Distancia HC-SR04 | *Gauge* (indicador) | `sis234/grupo9/distancia` | Mín. 0, máx. 100, factor 1, 2 decimales, unidad `cm`, QoS 0, muestra hora de recepción, sin prefijo de dashboard |
+| Historial de distancia | Gráfico de línea | `sis234/grupo9/distancia` | Serie en `cm` a lo largo del tiempo |
+| SERVO 0°, 45°, 90°, 135°, 180° | Botones | `sis234/grupo9/servo` | Payload `0`, `45`, `90`, `135` y `180` respectivamente (texto plano, sin JSON) |
+| Control Servomotor | Control deslizante | `sis234/grupo9/servo` | Envía el ángulo `0`–`180` |
 
-## 8. Pruebas
+> El gauge está configurado de 0 a 100 cm, mientras que el sensor mide hasta 400 cm (ver [sección 4](#4-contrato-mqtt)): distancias mayores saturan el indicador, aunque el historial y el servidor MCP las reportan completas.
 
-El plan completo está en la [guía](server_mcp/smart-object/GUIDE.md#6-test-procedure). Resumen de lo que se verifica:
+### Evidencias
+
+**Panel principal: botones del servo, gauge, historial de distancia y control deslizante.**
+
+| Dashboard: gauge, historial y slider | Dashboard: botones del servo |
+|:---:|:---:|
+| ![Dashboard con botón SERVO 180°, gauge de distancia, historial y control deslizante del servomotor](docs/mqtt-panel/01-distance-gauge-panel-config.jpeg) | ![Dashboard con botones SERVO 0°, 45°, 90°, 135° y 180° y el gauge de distancia](docs/mqtt-panel/02-servo-button-panel-config.jpeg) |
+
+**Configuración de los paneles en la aplicación.**
+
+| Panel del botón (Servo 0°) | Panel del gauge (Distancia HC-SR04) |
+|:---:|:---:|
+| ![Edición del botón Servo 0°: tópico sis234/grupo9/servo y payload 0](docs/mqtt-panel/03-dashboard-servo-buttons-and-distance-gauge.jpeg) | ![Edición del gauge Distancia HC-SR04: tópico sis234/grupo9/distancia, rango 0–100 cm, QoS 0](docs/mqtt-panel/04-dashboard-distance-history-and-servo-slider.jpeg) |
+
+| Captura | Qué demuestra |
+|---|---|
+| `01-distance-gauge-panel-config.jpeg` | Dashboard con distancia en vivo (39,91 cm), historial y slider del servo (RF4, RF5) |
+| `02-servo-button-panel-config.jpeg` | Los cinco botones de ángulo publicando en `sis234/grupo9/servo` (RF5) |
+| `03-dashboard-servo-buttons-and-distance-gauge.jpeg` | Configuración del botón: tópico y payload numérico en texto plano |
+| `04-dashboard-distance-history-and-servo-slider.jpeg` | Configuración del gauge: tópico de distancia, rango, unidad y QoS |
+
+> Las capturas documentan la configuración de los paneles para poder reproducirla. Si se exporta el panel desde la app, agrégalo en `docs/mqtt-panel/`.
+
+## 9. Pruebas
+
+Resumen de lo que se verifica:
 
 | Prueba | Resultado esperado |
 |---|---|
@@ -350,15 +377,15 @@ mosquitto_pub -h broker.hivemq.com -p 1883 -t "sis234/grupo9/servo" -m "90"
 
 Los resultados de las pruebas automáticas de integración del servidor (cliente MCP real sobre stdio contra HiveMQ, con tópicos alternos) fueron correctos para validación de payloads, comandos y operación sin MQTT. La reconexión tras la caída de un broker en funcionamiento y las pruebas con el ESP32 físico deben verificarse en la demostración.
 
-## 9. Requerimientos de la práctica
+## 10. Requerimientos de la práctica
 
 | Requerimiento | Estado | Dónde |
 |---|---|---|
 | RF1 Medir distancia | Implementado | `UltrasonicSensor` |
 | RF2 Publicar distancia periódicamente | Implementado (cada 5 s) | `main.cpp`, `MqttManager::publishDistance` |
 | RF3 Suscripción a comandos y control del actuador (1 servo) | Implementado | `MqttManager`, `ServoActuator`, `handleCommand` |
-| RF4 Visualización gráfica en app móvil | **No incluida en el repositorio**; la app (p. ej. IoT MQTT Panel) usa los tópicos del contrato. Falta añadir la exportación del panel si la app lo permite. | — |
-| RF5 Comandos desde la app | Mismo caso que RF4: publicar texto `0`–`180` en `sis234/grupo9/servo` | — |
+| RF4 Visualización gráfica en app móvil | Implementado: gauge e historial en IoT MQTT Panel | [Sección 8](#8-aplicación-móvil-y-evidencias) |
+| RF5 Comandos desde la app | Implementado: botones y slider publican `0`–`180` en `sis234/grupo9/servo` | [Sección 8](#8-aplicación-móvil-y-evidencias) |
 | RF6 IA con lenguaje natural | Implementado mediante el servidor MCP | `smart-object.py` |
 
 Requerimientos no funcionales (sección 3.2 del enunciado). Solo se declaran los valores que se derivan del código; el resto debe **medirse y completarse** antes de la demo:
@@ -374,7 +401,7 @@ Requerimientos no funcionales (sección 3.2 del enunciado). Solo se declaran los
 
 Las credenciales se mantienen fuera del repositorio mediante `include/config.h` en `.gitignore`, acompañado de `config.example.h`.
 
-## 10. Limitaciones conocidas
+## 11. Limitaciones conocidas
 
 - Los payloads de distancia **no tienen timestamp**: las horas reportadas por el servidor MCP son de **recepción**, no de medición.
 - El estado del servo es el ángulo *comandado* por el firmware: **no hay sensor de posición** ni IDs de comando. Un comando publicado con éxito no prueba que el servo se haya movido.
@@ -383,15 +410,3 @@ Las credenciales se mantienen fuera del repositorio mediante `include/config.h` 
 - El broker es público y sin autenticación ni TLS: cualquiera puede leer o publicar en los tópicos.
 - La conexión MQTT del firmware puede bloquear brevemente, por lo que la cadencia de medición no es de tiempo real estricto.
 - El servidor MCP usa por defecto los tópicos **reales**: un comando enviado desde el asistente mueve el servo físico.
-
-## 11. Solución de problemas
-
-| Síntoma | Qué revisar |
-|---|---|
-| El ESP32 no publica | Monitor serie: estado de Wi-Fi/MQTT y mensajes `Sin medición válida`. Revisa el cableado y el divisor del ECHO. |
-| El servo no responde | Que el payload sea solo dígitos 0–180 y que el tópico sea `sis234/grupo9/servo`. El monitor serie muestra `Comando ignorado`. |
-| `No module named 'mcp.server.fastmcp'` | Se instaló MCP 2.x; reinstala con `pip install -r requirements.txt`. |
-| El servidor no aparece en Claude Desktop | Rutas absolutas, sintaxis JSON, reinicio completo de la aplicación y los logs `mcp-server-smart-object.log`. |
-| Las herramientas indican `mqtt_connected: false` | Conexión a internet y alcance de `broker.hivemq.com:1883`. HiveMQ puede tardar un par de segundos en conectar al inicio. |
-| `get_distance` devuelve `stale: true` | No llegaron lecturas válidas recientemente (ESP32 apagado, sin eco o sin conexión). |
-| Error de configuración al iniciar el servidor | Lee el mensaje por stderr: indica el archivo y el campo inválido. |
