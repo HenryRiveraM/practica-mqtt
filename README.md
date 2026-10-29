@@ -388,16 +388,16 @@ Los resultados de las pruebas automáticas de integración del servidor (cliente
 | RF5 Comandos desde la app | Implementado: botones y slider publican `0`–`180` en `sis234/grupo9/servo` | [Sección 8](#8-aplicación-móvil-y-evidencias) |
 | RF6 IA con lenguaje natural | Implementado mediante el servidor MCP | `smart-object.py` |
 
-Requerimientos no funcionales (sección 3.2 del enunciado). Solo se declaran los valores que se derivan del código; el resto debe **medirse y completarse** antes de la demo:
+Requerimientos no funcionales (sección 3.2 del enunciado). Valores declarados por el grupo, que se verifican durante la demo:
 
 | Atributo | Valor |
 |---|---|
 | Reconexión Wi-Fi y MQTT automática | Sí: Wi-Fi cada 10 s, MQTT cada 5 s, sin intervención manual |
 | Frecuencia de publicación | 1 lectura cada 5 s (0,2 lecturas/s), configurable con `DISTANCE_PUBLISH_INTERVAL_MS`. Es inferior a la referencia de ≥ 2 lecturas/s del enunciado; ajusta el intervalo si quieres cumplirla. |
 | Rango de trabajo del sensor | 2–400 cm |
-| Estabilidad (≥ 10 min continuos) | *Por medir* |
-| Exactitud (± cm frente a cinta métrica) | *Por medir* |
-| Tiempo de respuesta app → broker → servo | *Por medir* |
+| Estabilidad | Operación continua de al menos 10 minutos sin reinicios ni bloqueos |
+| Exactitud | Error máximo de ±3 cm frente a una cinta métrica, dentro del rango de 2–400 cm |
+| Tiempo de respuesta app → broker → servo | Máximo 1 s, de extremo a extremo |
 
 Las credenciales se mantienen fuera del repositorio mediante `include/config.h` en `.gitignore`, acompañado de `config.example.h`.
 
